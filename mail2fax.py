@@ -7,6 +7,7 @@ import time
 
 #import PythonMagick
 
+MAILDIR = "/home/lluis/Maildir"
 PDF_DIR="/tmp"
 
 
@@ -32,7 +33,13 @@ def callerid_from_email(email_address):
 
 def create_callfile(destination,callerid,email,filename):
     callfile_path = "/tmp/" + str(callerid) + str(destination) + str(time.time())
-    callfile = open("/tmp/callfile", "w")
+    try:
+        callfile = open(callfile_path, "w")
+    except IOError as err:
+        print("Failed to open", callfile_path)
+        print(err)
+        exit(1)
+            
     call = "Channel: Local/" + destination + "\@outbound-allroutes\n"
     call += "CallerID: FAX <" + str(callerid) + ">\n"
     call += "WaitTime: 60\n"
@@ -58,7 +65,7 @@ def create_callfile(destination,callerid,email,filename):
 
 if __name__ == "__main__":
     try:
-        root_mailbox = mailbox.Maildir('/home/lluis/Maildir', factory=None)
+        root_mailbox = mailbox.Maildir(MAILDIR, factory=None)
         for key in root_mailbox.iterkeys():
             message = mailbox.MaildirMessage(root_mailbox[key])
             if 'S' in message.get_flags():
@@ -92,7 +99,6 @@ if __name__ == "__main__":
             if not message.is_multipart():
                 continue
             pdf_file = None
-            i = 0
             for part in message.walk():
                 if part.get_content_type()!="application/pdf":
                     continue
@@ -100,15 +106,17 @@ if __name__ == "__main__":
                 print("\tPart filename: ", pdf_file_name)
 
                 pdf_file = part.get_payload(decode=True)
-                i += 1
 
                 if pdf_file:
+                    # Save the PDF file
                     pdf_file_path = PDF_DIR + "/" + pdf_file_name
                     f = open(pdf_file_path, 'w')
                     f.write(pdf_file)
                     f.close()
 
                     callfile = create_callfile(number.group(1), callerid, from_address.group(1), pdf_file_path)
+                    # We only want one PDF file
+                    break
     finally:
         root_mailbox.close()
 
