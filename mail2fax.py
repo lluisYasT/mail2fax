@@ -4,11 +4,12 @@ import mailbox
 import re
 import mysql.connector
 import time
+import os
 
 #import PythonMagick
 
 MAILDIR = "/home/lluis/Maildir"
-PDF_DIR="/tmp"
+TMP_DIR="/tmp"
 
 
 def callerid_from_email(email_address):
@@ -32,7 +33,8 @@ def callerid_from_email(email_address):
     return number
 
 def create_callfile(destination,callerid,email,filename):
-    callfile_path = "/tmp/" + str(callerid) + str(destination) + str(time.time())
+    callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
+    callfile_path = TMP_DIR + "/" + callfile_name
     try:
         callfile = open(callfile_path, "w")
     except IOError as err:
@@ -60,7 +62,7 @@ def create_callfile(destination,callerid,email,filename):
     callfile.write(call)
     callfile.close()
     
-    return callfile_path
+    return callfile_name
 
 
 if __name__ == "__main__":
@@ -109,7 +111,7 @@ if __name__ == "__main__":
 
                 if pdf_file:
                     # Save the PDF file
-                    pdf_file_path = PDF_DIR + "/" + pdf_file_name
+                    pdf_file_path = TMP_DIR + "/" + pdf_file_name
                     f = open(pdf_file_path, 'w')
                     f.write(pdf_file)
                     f.close()
@@ -117,6 +119,8 @@ if __name__ == "__main__":
                     callfile = create_callfile(number.group(1), callerid, from_address.group(1), pdf_file_path)
                     # We only want one PDF file
                     break
+            if callfile:
+                os.rename(TMP_DIR + "/" + callfile, "/var/spool/asterisk/outgoing" + "/" + callfile)
     finally:
         root_mailbox.close()
 
