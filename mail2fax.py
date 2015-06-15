@@ -3,8 +3,11 @@ from __future__ import print_function
 import mailbox
 import re
 import mysql.connector
+import time
+
 #import PythonMagick
 
+PDF_DIR="/tmp"
 
 
 def callerid_from_email(email_address):
@@ -28,6 +31,7 @@ def callerid_from_email(email_address):
     return number
 
 def create_callfile(destination,callerid,email,filename):
+    callfile_path = "/tmp/" + str(callerid) + str(destination) + str(time.time())
     callfile = open("/tmp/callfile", "w")
     call = "Channel: Local/" + destination + "\@outbound-allroutes\n"
     call += "CallerID: FAX <" + str(callerid) + ">\n"
@@ -47,8 +51,9 @@ def create_callfile(destination,callerid,email,filename):
     print(call)
 
     callfile.write(call)
-
     callfile.close()
+    
+    return callfile_path
 
 
 if __name__ == "__main__":
@@ -56,47 +61,54 @@ if __name__ == "__main__":
         root_mailbox = mailbox.Maildir('/home/lluis/Maildir', factory=None)
         for key in root_mailbox.iterkeys():
             message = mailbox.MaildirMessage(root_mailbox[key])
-            if 'S' not in message.get_flags():
-                #message.set_flags('S')
-                #message.set_subdir("cur")
-                to = message['to']
-                from_address = re.match("([^ ]+@[^ ]+\.\w+)", message['from'], flags=0)
-                if not from_address:
+            if 'S' in message.get_flags():
+                continue
+            #message.set_flags('S')
+            #message.set_subdir("cur")
+            to = message['to']
+            from_address = re.match("([^ ]+@[^ ]+\.\w+)", message['from'], flags=0)
+
+            if not from_address:
+                continue
+            print("\tTo:", to)
+            print("\tFrom:", from_address.group(1))
+            callerid = callerid_from_email(from_address.group(1))
+            print("CallerID:", callerid)
+
+            if not callerid:
+                print("\nUser ", from_address.group(1), " not found\n")
+                continue
+            number = re.match("(\d+)", to, flags=0)
+
+            if not number :
+                continue
+
+            print("\tDir: ", message.get_subdir())
+            print("\tNumber: ", number.group(1))
+            root_mailbox[key] = message
+            root_mailbox.flush()
+            print("\tFlags: ", root_mailbox[key].get_flags())
+
+            if not message.is_multipart():
+                continue
+            pdf_file = None
+            i = 0
+            for part in message.walk():
+                if part.get_content_type()!="application/pdf":
                     continue
-                print("\tTo:", to)
-                print("\tFrom:", from_address.group(1))
-                callerid = callerid_from_email(from_address.group(1))
-                print("CallerID:", callerid)
+                pdf_file_name = part.get_filename()
+                print("\tPart filename: ", pdf_file_name)
 
-                if not callerid:
-                    print("\nUser ", from_address.group(1), " not found\n")
-                    continue
-                number = re.match("(\d+)", to, flags=0)
-                pdf_file = None
+                pdf_file = part.get_payload(decode=True)
+                i += 1
 
-                if not number :
-                    continue
-                print("\tDir: ", message.get_subdir())
-                print("\tNumber: ", number.group(1))
-                root_mailbox[key] = message
-                root_mailbox.flush()
-                print("\tFlags: ", root_mailbox[key].get_flags())
-                if message.is_multipart():
-                    i = 0
-                    for part in message.walk():
-                        if part.get_content_type()=="application/pdf":
-                            pdf_file_name = part.get_filename()
-                            print("\tPart filename: ", pdf_file_name)
-                            print("\t\tContains a PDF file!")
-                            pdf_file = part.get_payload(decode=True)
-                            i += 1
+                if pdf_file:
+                    pdf_file_path = PDF_DIR + "/" + pdf_file_name
+                    f = open(pdf_file_path, 'w')
+                    f.write(pdf_file)
+                    f.close()
 
-                            if pdf_file:
-                                f = open("/tmp/" + pdf_file_name, 'w')
-                                f.write(pdf_file)
-                                f.close()
-
-                                create_callfile(number.group(1), callerid, from_address.group(1), pdf_file_name)
+                    callfile = create_callfile(number.group(1), callerid, from_address.group(1), pdf_file_path)
     finally:
         root_mailbox.close()
 
