@@ -5,25 +5,26 @@ import re
 import mysql.connector
 #import PythonMagick
 
-try:
-    cnx = mysql.connector.connect(user='root', database='fax')
-
-except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Wrong username or password")
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-    else:
-        print(err)
 
 
 def callerid_from_email(email_address):
+    try:
+        cnx = mysql.connector.connect(user='root', database='fax')
+
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Wrong username or password")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Database does not exist")
+        else:
+            print(err)
     cursor = cnx.cursor()
     cursor.execute(
         'SELECT number FROM fax_users WHERE email="%s"' %
         email_address)
     number = cursor.fetchone()[0]
     cursor.close()
+    cnx.close()
     return number
 
 def create_callfile(destination,callerid,email,filename):
@@ -99,4 +100,3 @@ if __name__ == "__main__":
     finally:
         root_mailbox.close()
 
-    cnx.close()
