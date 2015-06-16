@@ -5,6 +5,7 @@ import re
 import mysql.connector
 import time
 import os
+import subprocess
 
 #import PythonMagick
 
@@ -112,11 +113,18 @@ if __name__ == "__main__":
                 if pdf_file:
                     # Save the PDF file
                     pdf_file_path = TMP_DIR + "/" + pdf_file_name
+                    tiff_file_path = pdf_file_path + ".tiff"
                     f = open(pdf_file_path, 'w')
                     f.write(pdf_file)
                     f.close()
 
-                    callfile = create_callfile(number.group(1), callerid, from_address.group(1), pdf_file_path)
+                    res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", pdf_file_path])
+                    if res == 0:
+                        os.remove(pdf_file_path)
+                    else:
+                        print("Tiff conversion failed")
+
+                    callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_path)
                     # We only want one PDF file
                     break
             if callfile:
