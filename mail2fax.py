@@ -47,7 +47,7 @@ def create_callfile(destination,callerid,email,filename):
         print(err)
         exit(1)
             
-    call = "Channel: Local/" + destination + "\@outbound-allroutes\n"
+    call = "Channel: Local/" + destination + "@outbound-allroutes\n"
     call += "CallerID: FAX <" + str(callerid) + ">\n"
     call += "WaitTime: 60\n"
     call += "Archive: yes\n"
