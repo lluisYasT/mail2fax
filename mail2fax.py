@@ -9,7 +9,7 @@ import subprocess
 
 #import PythonMagick
 
-MAILDIR = "/home/lluis/Maildir"
+MAILDIR = "/root/Maildir"
 TMP_DIR="/tmp"
 
 
@@ -28,10 +28,14 @@ def callerid_from_email(email_address):
     cursor.execute(
         'SELECT number FROM fax_users WHERE email="%s"' %
         email_address)
-    number = cursor.fetchone()[0]
+    try:
+        callerid = cursor.fetchone()[0]
+    except TypeError:
+        callerid = -1
+
     cursor.close()
     cnx.close()
-    return number
+    return callerid
 
 def create_callfile(destination,callerid,email,filename):
     callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
@@ -85,12 +89,12 @@ if __name__ == "__main__":
             callerid = callerid_from_email(from_address.group(1))
             print("CallerID:", callerid)
 
-            if not callerid:
+            if callerid < 0:
                 print("\nUser ", from_address.group(1), " not found\n")
                 continue
             number = re.match("(\d+)", to, flags=0)
 
-            if not number :
+            if not number:
                 continue
 
             print("\tDir: ", message.get_subdir())
