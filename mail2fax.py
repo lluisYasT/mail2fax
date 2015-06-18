@@ -74,13 +74,14 @@ if __name__ == "__main__":
     try:
         root_mailbox = mailbox.Maildir(MAILDIR, factory=None)
         for key in root_mailbox.iterkeys():
+            print("\n-------------\n")
             message = mailbox.MaildirMessage(root_mailbox[key])
             if 'S' in message.get_flags():
                 continue
             #message.set_flags('S')
             #message.set_subdir("cur")
             to = message['to']
-            from_address = re.match("([^ ]+@[^ ]+\.\w+)", message['from'], flags=0)
+            from_address = re.match("([a-zA-Z0-9_.]+@[a-zA-Z0-9_.]+\.\w{2,5})", message['from'], flags=0)
 
             if not from_address:
                 continue
@@ -92,7 +93,7 @@ if __name__ == "__main__":
             if callerid < 0:
                 print("\nUser ", from_address.group(1), " not found\n")
                 continue
-            number = re.match("(\d+)", to, flags=0)
+            number = re.match("^(\d+)@[a-zA-Z0-9_.]+\.\w{2,5}", to, flags=0)
 
             if not number:
                 continue
