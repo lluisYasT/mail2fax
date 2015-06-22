@@ -78,8 +78,10 @@ if __name__ == "__main__":
             message = mailbox.MaildirMessage(root_mailbox[key])
             if 'S' in message.get_flags():
                 continue
-            #message.set_flags('S')
-            #message.set_subdir("cur")
+            message.set_flags('S')
+            message.set_subdir("cur")
+            root_mailbox[key] = message
+
             to = message['to']
             from_address = re.match("([a-zA-Z0-9_.]+@[a-zA-Z0-9_.]+\.\w{2,5})", message['from'], flags=0)
 
