@@ -62,8 +62,6 @@ def create_callfile(destination,callerid,email,filename):
     call += "Set: EMAIL=" + email + "\n"
     call += "Set: DESTINATION=" + destination + "\n"
 
-    print(call)
-
     callfile.write(call)
     callfile.close()
     
@@ -72,25 +70,22 @@ def create_callfile(destination,callerid,email,filename):
 
 if __name__ == "__main__":
     try:
-        root_mailbox = mailbox.Maildir(MAILDIR, factory=None)
-        for key in root_mailbox.iterkeys():
-            print("\n-------------\n")
-            message = mailbox.MaildirMessage(root_mailbox[key])
+        selected_mailbox = mailbox.Maildir(MAILDIR, factory=None)
+        for key in selected_mailbox.iterkeys():
+            message = mailbox.MaildirMessage(selected_mailbox[key])
             if 'S' in message.get_flags():
                 continue
             message.set_flags('S')
             message.set_subdir("cur")
-            root_mailbox[key] = message
+            selected_mailbox[key] = message
 
             to = message['to']
             from_address = re.search("<?([a-zA-Z0-9_.]+@[a-zA-Z0-9_.]+\.\w{2,5})>?", message['from'], flags=0)
 
             if not from_address:
                 continue
-            print("\tTo:", to)
-            print("\tFrom:", from_address.group(1))
+
             callerid = callerid_from_email(from_address.group(1))
-            print("CallerID:", callerid)
 
             if callerid < 0:
                 print("\nUser ", from_address.group(1), " not found\n")
@@ -100,11 +95,8 @@ if __name__ == "__main__":
             if not number:
                 continue
 
-            print("\tDir: ", message.get_subdir())
-            print("\tNumber: ", number.group(1))
-            root_mailbox[key] = message
-            root_mailbox.flush()
-            print("\tFlags: ", root_mailbox[key].get_flags())
+            selected_mailbox[key] = message
+            selected_mailbox.flush()
 
             if not message.is_multipart():
                 continue
@@ -135,7 +127,8 @@ if __name__ == "__main__":
                     # We only want one PDF file
                     break
             if callfile:
+                print("FAX File created:", from_address.group(1), callerid, number.group(1))
                 os.rename(TMP_DIR + "/" + callfile, "/var/spool/asterisk/outgoing" + "/" + callfile)
     finally:
-        root_mailbox.close()
+        selected_mailbox.close()
 
