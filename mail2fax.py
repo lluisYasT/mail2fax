@@ -83,7 +83,7 @@ if __name__ == "__main__":
             root_mailbox[key] = message
 
             to = message['to']
-            from_address = re.match("([a-zA-Z0-9_.]+@[a-zA-Z0-9_.]+\.\w{2,5})", message['from'], flags=0)
+            from_address = re.search("<?([a-zA-Z0-9_.]+@[a-zA-Z0-9_.]+\.\w{2,5})>?", message['from'], flags=0)
 
             if not from_address:
                 continue
@@ -95,7 +95,7 @@ if __name__ == "__main__":
             if callerid < 0:
                 print("\nUser ", from_address.group(1), " not found\n")
                 continue
-            number = re.match("^(\d+)@[a-zA-Z0-9_.]+\.\w{2,5}", to, flags=0)
+            number = re.search("^(\d+)@[a-zA-Z0-9_.]+\.\w{2,5}", to, flags=0)
 
             if not number:
                 continue
