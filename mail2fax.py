@@ -91,7 +91,7 @@ if __name__ == "__main__":
             message.set_subdir("cur")
             selected_mailbox[key] = message
 
-            to = message['to']
+            to = message['X-Original-To']
             from_address = re.search("<?([a-zA-Z0-9_.]+@[a-zA-Z0-9_.-]+\.\w+)>?", message['from'], flags=0)
 
             if not from_address:
