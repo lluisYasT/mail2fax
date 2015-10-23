@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# set ts=4 sts=4 sw=4 expandtab
 from __future__ import print_function
 import mailbox
 import re
