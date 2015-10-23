@@ -38,6 +38,7 @@ def callerid_from_email(email_address):
     return callerid
 
 def create_callfile(destination,callerid,email,filenames):
+    filename = ""
     if len(filenames) == 1:
         filename = filenames[0]
 	fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
@@ -47,6 +48,9 @@ def create_callfile(destination,callerid,email,filenames):
         filename_sendfax = "&".join(filenames)
 	fax_file_line = "Set: FAXOPT(filenames)=" + filename + "\n"
 	fax_file_line += "Set: FAXFILE=" + filename_sendfax + "\n"
+
+    if not filename:
+	return -1
 
     print(filename)
     callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
@@ -117,30 +121,32 @@ if __name__ == "__main__":
                 continue
             pdf_file = None
             for part in message.walk():
-                if part.get_content_type()!="application/pdf":
-                    continue
-                pdf_file_name = part.get_filename()
-                print("\tPart filename: ", pdf_file_name)
+		print(part.get_content_type())
+                if part.get_content_type()=="application/pdf" or part.get_content_type()=="image/tiff":
+			file_name = part.get_filename()
+			print("\tPart filename: ", file_name)
+			file_content = part.get_payload(decode=True)
 
-                pdf_file = part.get_payload(decode=True)
+			file_path = TMP_DIR + "/" + file_name
+			file_fd = open(file_path, 'w')
+			file_fd.write(file_content)
+			file_fd.close()
+			if part.get_content_type()=="application/pdf":
+				tiff_file_path = pdf_file_path + ".tiff"
+				res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", file_path])
+				if res == 0:
+					os.remove(pdf_file_path)
+				else:
+					print("Tiff conversion failed")
+					tiff_file_path = None
 
-                if pdf_file:
-                    # Save the PDF file
-                    pdf_file_path = TMP_DIR + "/" + pdf_file_name
-                    tiff_file_path = pdf_file_path + ".tiff"
-                    f = open(pdf_file_path, 'w')
-                    f.write(pdf_file)
-                    f.close()
+			tiff_file_path = file_path
 
-                    res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", pdf_file_path])
-                    if res == 0:
-                        os.remove(pdf_file_path)
-                    else:
-                        print("Tiff conversion failed")
-                    
-                    tiff_file_paths.append(tiff_file_path)
-
+			tiff_file_paths.append(tiff_file_path)
 	    callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
+            if callfile == -1:
+                print("Error creating callfile")
+                break
 	    # We only want one PDF file
 	    #break
 	    if callfile:
