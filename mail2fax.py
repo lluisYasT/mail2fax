@@ -41,20 +41,21 @@ def create_callfile(destination,callerid,email,filenames):
     filename = ""
     if len(filenames) == 1:
         filename = filenames[0]
-	fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
-	fax_file_line += "Set: FAXFILE=" + filename + "\n"
+        fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
+        fax_file_line += "Set: FAXFILE=" + filename + "\n"
     elif len(filenames) > 1:
         filename = ",".join(filenames)
         filename_sendfax = "&".join(filenames)
-	fax_file_line = "Set: FAXOPT(filenames)=" + filename + "\n"
-	fax_file_line += "Set: FAXFILE=" + filename_sendfax + "\n"
+        fax_file_line = "Set: FAXOPT(filenames)=" + filename + "\n"
+        fax_file_line += "Set: FAXFILE=" + filename_sendfax + "\n"
 
     if not filename:
-	return -1
+        return -1
 
     print(filename)
     callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
     callfile_path = TMP_DIR + "/" + callfile_name
+
     try:
         callfile = open(callfile_path, "w")
     except IOError as err:
@@ -99,7 +100,7 @@ if __name__ == "__main__":
             from_address = re.search("<?([a-zA-Z0-9_.]+@[a-zA-Z0-9_.-]+\.\w+)>?", message['from'], flags=0)
 
             if not from_address:
-		print(message['from'])
+                print(message['from'])
                 continue
 
             callerid = callerid_from_email(from_address.group(1))
@@ -121,37 +122,36 @@ if __name__ == "__main__":
                 continue
             pdf_file = None
             for part in message.walk():
-		print(part.get_content_type())
+                print(part.get_content_type())
                 if part.get_content_type()=="application/pdf" or part.get_content_type()=="image/tiff":
-			file_name = part.get_filename()
-			print("\tPart filename: ", file_name)
-			file_content = part.get_payload(decode=True)
+                    file_name = part.get_filename()
+                    print("\tPart filename: ", file_name)
+                    file_content = part.get_payload(decode=True)
 
-			file_path = TMP_DIR + "/" + file_name
-			file_fd = open(file_path, 'w')
-			file_fd.write(file_content)
-			file_fd.close()
-			tiff_file_path = file_path
-			if part.get_content_type()=="application/pdf":
-				tiff_file_path = file_path + ".tiff"
-				res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", file_path])
-				if res == 0:
-					os.remove(file_path)
-				else:
-					print("Tiff conversion failed")
-					tiff_file_path = None
+                    file_path = TMP_DIR + "/" + file_name
+                    file_fd = open(file_path, 'w')
+                    file_fd.write(file_content)
+                    file_fd.close()
+                    tiff_file_path = file_path
+                    if part.get_content_type()=="application/pdf":
+                        tiff_file_path = file_path + ".tiff"
+                        res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", file_path])
+                        if res == 0:
+                            os.remove(file_path)
+                        else:
+                            print("Tiff conversion failed")
+                            tiff_file_path = None
 
+                    tiff_file_paths.append(tiff_file_path)
 
-			tiff_file_paths.append(tiff_file_path)
-	    callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
+            callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
             if callfile == -1:
                 print("Error creating callfile")
                 break
-	    # We only want one PDF file
-	    #break
-	    if callfile:
-		print("FAX File created:", from_address.group(1), callerid, number.group(1))
-		os.rename(TMP_DIR + "/" + callfile, "/var/spool/asterisk/outgoing" + "/" + callfile)
+
+            if callfile:
+                print("FAX File created:", from_address.group(1), callerid, number.group(1))
+                os.rename(TMP_DIR + "/" + callfile, "/var/spool/asterisk/outgoing" + "/" + callfile)
     finally:
         selected_mailbox.close()
 
