@@ -7,6 +7,7 @@ import mysql.connector
 import time
 import os
 import subprocess
+import logging
 
 #import PythonMagick
 
@@ -20,11 +21,11 @@ def callerid_from_email(email_address):
 
     except mysql.connector.Error as err:
         if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Wrong username or password")
+            logging.warning("Wrong username or password")
         elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
+            logging.warning("Database does not exist")
         else:
-            print(err)
+            logging.warning(err)
     cursor = cnx.cursor()
     cursor.execute(
         'SELECT number FROM fax_users WHERE email="%s"' %
@@ -44,11 +45,13 @@ def create_callfile(destination,callerid,email,filenames):
         filename = filenames[0]
         fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
         fax_file_line += "Set: FAXFILE=" + filename + "\n"
+        logging.debug("Fax_file_line: " + fax_file_line)
     elif len(filenames) > 1:
         filename = ",".join(filenames)
         filename_sendfax = "&".join(filenames)
         fax_file_line = "Set: FAXOPT(filenames)=" + filename + "\n"
         fax_file_line += "Set: FAXFILE=" + filename_sendfax + "\n"
+        logging.debug("Fax_file_line: " + fax_file_line)
 
     if not filename:
         return -1
@@ -79,6 +82,7 @@ def create_callfile(destination,callerid,email,filenames):
     call += "Set: EMAIL=" + email + "\n"
     call += "Set: DESTINATION=" + destination + "\n"
 
+    logging.debug("Callfile contents: " + call)
     callfile.write(call)
     callfile.close()
     
@@ -86,6 +90,7 @@ def create_callfile(destination,callerid,email,filenames):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='/var/log/asterisk/mail2fax.log',format='[%(asctime)s]\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
     try:
         selected_mailbox = mailbox.Maildir(MAILDIR, factory=None)
         for key in selected_mailbox.iterkeys():
@@ -101,32 +106,33 @@ if __name__ == "__main__":
             from_address = re.search("<?([a-zA-Z0-9_.]+@[a-zA-Z0-9_.-]+\.\w+)>?", message['from'], flags=0)
 
             if not from_address:
-                print(message['from'])
+                logging.warning("Incorrect FROM header: " + message['from'])
                 continue
 
             callerid = callerid_from_email(from_address.group(1))
 
             if callerid < 0:
-                print("\nUser ", from_address.group(1), " not found\n")
+                logging.info("User " + from_address.group(1) + " not found")
                 continue
+
             number = re.search("<?(\d+)@[a-zA-Z0-9_.]+\.\w{2,5}>?", to, flags=0)
 
             if not number:
-                print("Wrong number in: ", to, "\n")
+                logging.warning("Wrong number in: " + to)
                 continue
 
             selected_mailbox[key] = message
             selected_mailbox.flush()
 
             if not message.is_multipart():
-                print("Not Multipart\n")
+                logging.warning("No files attached")
                 continue
             pdf_file = None
             for part in message.walk():
-                print(part.get_content_type())
+                logging.debug(part.get_content_type())
                 if part.get_content_type()=="application/pdf" or part.get_content_type()=="image/tiff":
                     file_name = part.get_filename()
-                    print("\tPart filename: ", file_name)
+                    logging.info("Part filename: " + file_name)
                     file_content = part.get_payload(decode=True)
 
                     file_path = os.path.join(TMP_DIR, file_name)
@@ -140,18 +146,18 @@ if __name__ == "__main__":
                         if res == 0:
                             os.remove(file_path)
                         else:
-                            print("Tiff conversion failed")
+                            logging.warning("Tiff conversion failed")
                             tiff_file_path = None
 
                     tiff_file_paths.append(tiff_file_path)
 
             callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
             if callfile == -1:
-                print("Error creating callfile")
+                logging.warning("Error creating callfile")
                 break
 
             if callfile:
-                print("FAX File created:", from_address.group(1), callerid, number.group(1))
+                logging.info("FAX File created:" + from_address.group(1) + str(callerid) + number.group(1))
                 os.rename(os.path.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
     finally:
         selected_mailbox.close()
