@@ -131,16 +131,16 @@ if __name__ == "__main__":
 			file_fd = open(file_path, 'w')
 			file_fd.write(file_content)
 			file_fd.close()
+			tiff_file_path = file_path
 			if part.get_content_type()=="application/pdf":
-				tiff_file_path = pdf_file_path + ".tiff"
+				tiff_file_path = file_path + ".tiff"
 				res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", file_path])
 				if res == 0:
-					os.remove(pdf_file_path)
+					os.remove(file_path)
 				else:
 					print("Tiff conversion failed")
 					tiff_file_path = None
 
-			tiff_file_path = file_path
 
 			tiff_file_paths.append(tiff_file_path)
 	    callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
