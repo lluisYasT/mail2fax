@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
             if callfile:
                 print("FAX File created:", from_address.group(1), callerid, number.group(1))
-                os.rename(os.pat.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
+                os.rename(os.path.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
     finally:
         selected_mailbox.close()
 
