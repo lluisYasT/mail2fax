@@ -54,7 +54,7 @@ def create_callfile(destination,callerid,email,filenames):
 
     print(filename)
     callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
-    callfile_path = TMP_DIR + "/" + callfile_name
+    callfile_path = os.path.join(TMP_DIR, callfile_name)
 
     try:
         callfile = open(callfile_path, "w")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
                     print("\tPart filename: ", file_name)
                     file_content = part.get_payload(decode=True)
 
-                    file_path = TMP_DIR + "/" + file_name
+                    file_path = os.path.join(TMP_DIR, file_name)
                     file_fd = open(file_path, 'w')
                     file_fd.write(file_content)
                     file_fd.close()
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
             if callfile:
                 print("FAX File created:", from_address.group(1), callerid, number.group(1))
-                os.rename(TMP_DIR + "/" + callfile, "/var/spool/asterisk/outgoing" + "/" + callfile)
+                os.rename(os.pat.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
     finally:
         selected_mailbox.close()
 
