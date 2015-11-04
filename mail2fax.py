@@ -108,6 +108,7 @@ if __name__ == "__main__":
             if not from_address:
                 logging.warning("Incorrect FROM header: " + message['from'])
                 continue
+            logging.debug("From: " + from_address.group(1))
 
             callerid = callerid_from_email(from_address.group(1))
 
@@ -120,6 +121,8 @@ if __name__ == "__main__":
             if not number:
                 logging.warning("Wrong number in: " + to)
                 continue
+
+            logging.debug("Number: " + number.group(1))
 
             selected_mailbox[key] = message
             selected_mailbox.flush()
