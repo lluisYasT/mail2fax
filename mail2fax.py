@@ -8,6 +8,7 @@ import time
 import os
 import subprocess
 import logging
+import string
 
 #import PythonMagick
 
@@ -39,26 +40,19 @@ def callerid_from_email(email_address):
     cnx.close()
     return callerid
 
-def create_callfile(destination,callerid,email,filenames):
-    filename = ""
-    if len(filenames) == 1:
-        filename = filenames[0]
-        fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
-        fax_file_line += "Set: FAXFILE=" + filename + "\n"
-        logging.debug("Fax_file_line: " + fax_file_line)
-    elif len(filenames) > 1:
-        filename = ",".join(filenames)
-        filename_sendfax = "&".join(filenames)
-        fax_file_line = "Set: FAXOPT(filenames)=" + filename + "\n"
-        fax_file_line += "Set: FAXFILE=" + filename_sendfax + "\n"
-        logging.debug("Fax_file_line: " + fax_file_line)
+def create_callfile(destination,callerid,email,filename):
 
-    if not filename:
+    if not filename or filename == -1:
         return -1
 
-    print(filename)
+    print("Tiff filename: " + filename + "\n")
     callfile_name = str(callerid) + str(destination) + str(time.time()) + ".call"
     callfile_path = os.path.join(TMP_DIR, callfile_name)
+
+    fax_file_line = "Set: FAXOPT(filename)=" + filename + "\n"
+    fax_file_line += "Set: FAXFILE=" + filename + "\n"
+    logging.debug("Fax_file_line: " + fax_file_line)
+
 
     try:
         callfile = open(callfile_path, "w")
@@ -86,7 +80,40 @@ def create_callfile(destination,callerid,email,filenames):
     callfile.write(call)
     callfile.close()
     
-    return callfile_name
+    if callfile_name:
+        return callfile_name
+    else:
+        return -1
+
+def create_tiff_file(file_paths):
+    if len(file_paths) == 1 and file_paths[0].lower().endswith(('.tif', '.tiff')):
+        return file_paths[0]
+    
+    file_paths_tiff = []
+    for file in file_paths:
+        if file.lower().endswith('.pdf'):
+            file_tiff = file + '.tiff'
+            res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + file_tiff, file])
+            if res == 0:
+                file_paths_tiff.append(file_tiff)
+                os.remove(file)
+            else:
+                logging.warning("Tiff conversion failed")
+                return -1
+        else:
+            file_paths_tiff.append(file)
+    
+    tiff_file_path = os.path.join(TMP_DIR, str(time.time()) + ".tiff")
+    print("Joining tiffs")
+    if len(file_paths_tiff) > 1:
+        res = subprocess.call(["tiffcp"] + file_paths_tiff + [tiff_file_path])
+        if res == 0:
+            return tiff_file_path
+        else:
+            return -1
+
+    else:
+        return file_paths_tiff[0]
 
 
 if __name__ == "__main__":
@@ -94,7 +121,7 @@ if __name__ == "__main__":
     try:
         selected_mailbox = mailbox.Maildir(MAILDIR, factory=None)
         for key in selected_mailbox.iterkeys():
-            tiff_file_paths = []
+            file_paths = []
             message = mailbox.MaildirMessage(selected_mailbox[key])
             if 'S' in message.get_flags():
                 continue
@@ -134,7 +161,7 @@ if __name__ == "__main__":
             for part in message.walk():
                 logging.debug(part.get_content_type())
                 if part.get_content_type()=="application/pdf" or part.get_content_type()=="image/tiff":
-                    file_name = part.get_filename()
+                    file_name = re.sub(' ','_',part.get_filename())
                     logging.info("Part filename: " + file_name)
                     file_content = part.get_payload(decode=True)
 
@@ -142,26 +169,23 @@ if __name__ == "__main__":
                     file_fd = open(file_path, 'w')
                     file_fd.write(file_content)
                     file_fd.close()
-                    tiff_file_path = file_path
-                    if part.get_content_type()=="application/pdf":
-                        tiff_file_path = file_path + ".tiff"
-                        res = subprocess.call(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiffg4", "-sOutputFile=" + tiff_file_path, "-f", file_path])
-                        if res == 0:
-                            os.remove(file_path)
-                        else:
-                            logging.warning("Tiff conversion failed")
-                            tiff_file_path = None
 
-                    tiff_file_paths.append(tiff_file_path)
+                    file_paths.append(file_path)
 
-            callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_paths)
-            if callfile == -1:
-                logging.warning("Error creating callfile")
-                break
+            if len(file_paths) > 0:
+                tiff_file_path = create_tiff_file(file_paths)
+                
+            if tiff_file_path:
+                callfile = create_callfile(number.group(1), callerid, from_address.group(1), tiff_file_path)
+                if callfile == -1:
+                    logging.warning("Error creating callfile")
+                    break
+                if callfile:
+                    logging.info("FAX File created:" + from_address.group(1) + str(callerid) + number.group(1))
+                    os.rename(os.path.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
+            else:
+                logging.error("Tiff file creation Failed")
 
-            if callfile:
-                logging.info("FAX File created:" + from_address.group(1) + str(callerid) + number.group(1))
-                os.rename(os.path.join(TMP_DIR, callfile), os.path.join("/var/spool/asterisk/outgoing", callfile))
     finally:
         selected_mailbox.close()
 
